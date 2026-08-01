@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Garmin Coach — Sign Up</title>
+<style>
+  body { font-family: -apple-system, sans-serif; max-width: 420px; margin: 60px auto; padding: 0 20px; color: #1a1a1a; }
+  h1 { font-size: 20px; }
+  input { width: 100%; padding: 10px; margin: 6px 0 16px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; }
+  button { width: 100%; padding: 12px; background: #007aff; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; }
+  button:disabled { background: #999; }
+  #result { margin-top: 20px; padding: 14px; border-radius: 6px; display: none; word-break: break-all; }
+  #result.ok { background: #e6f7ea; display: block; }
+  #result.err { background: #fdeaea; display: block; }
+  #token { font-weight: bold; font-family: monospace; }
+</style>
+</head>
+<body>
+<h1>Connect your Garmin account</h1>
+<p>Enter your Garmin Connect login. You'll get a personal token to use in the app — your password is never stored, only sent once to log in.</p>
+
+<div id="step-credentials">
+  <label>Email</label>
+  <input type="email" id="email">
+  <label>Password</label>
+  <input type="password" id="password">
+  <button onclick="startSignup()">Continue</button>
+</div>
+
+<div id="step-mfa" style="display:none">
+  <label>Enter the MFA code sent to you by Garmin</label>
+  <input type="text" id="mfa_code">
+  <button onclick="verifyMfa()">Verify</button>
+</div>
+
+<div id="result"></div>
+
+<script>
+let signupId = null;
+
+async function startSignup() {
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+  const res = await fetch('/signup/start', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({email, password})
+  });
+  const data = await res.json();
+  if (data.status === 'mfa_required') {
+    signupId = data.signup_id;
+    document.getElementById('step-credentials').style.display = 'none';
+    document.getElementById('step-mfa').style.display = 'block';
+  } else if (data.status === 'ok') {
+    showToken(data.token);
+  } else {
+    showError(data.error || 'Something went wrong.');
+  }
+}
+
+async function verifyMfa() {
+  const mfa_code = document.getElementById('mfa_code').value;
+  const res = await fetch('/signup/verify', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({signup_id: signupId, mfa_code})
+  });
+  const data = await res.json();
+  if (data.status === 'ok') {
+    showToken(data.token);
+  } else {
+    showError(data.error || 'Something went wrong.');
+  }
+}
+
+function showToken(token) {
+  document.getElementById('step-credentials').style.display = 'none';
+  document.getElementById('step-mfa').style.display = 'none';
+  const el = document.getElementById('result');
+  el.className = 'ok';
+  el.innerHTML = "You're connected! Your personal token:<br><br><span id='token'>" + token + "</span><br><br>Copy this into the app. Keep it private — it gives access to your Garmin data.";
+}
+
+function showError(msg) {
+  const el = document.getElementById('result');
+  el.className = 'err';
+  el.innerText = 'Error: ' + msg;
+}
+</script>
+</body>
+</html>
