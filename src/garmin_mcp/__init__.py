@@ -540,6 +540,12 @@ def main():
         @fastmcp.custom_route("/dashboard", methods=["GET"])
         async def dashboard(_request: "Request") -> "HTMLResponse":
             return HTMLResponse(DASHBOARD_HTML)
+
+        _signup_html = (pathlib.Path(__file__).parent / "static" / "signup.html").read_text()
+
+        @fastmcp.custom_route("/signup", methods=["GET"])
+        async def signup_page(_request: "Request") -> "HTMLResponse":
+            return HTMLResponse(_signup_html)
         @fastmcp.custom_route("/api/dashboard-data", methods=["GET", "OPTIONS"])
         async def dashboard_data(request: "Request"):
             if request.method == "OPTIONS":
