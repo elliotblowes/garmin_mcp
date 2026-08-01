@@ -603,7 +603,9 @@ def main():
         from garmin_mcp.user_context import current_user_token
 
         async def guarded_app(scope, receive, send):
-            if scope["type"] == "http" and scope["path"].startswith("/mcp"):
+            if scope["type"] == "http" and (
+                scope["path"].startswith("/mcp") or scope["path"].startswith("/dashboard") or scope["path"].startswith("/api/dashboard-data")
+            ):
                 query_string = scope.get("query_string", b"").decode()
                 query_token = None
                 for pair in query_string.split("&"):
