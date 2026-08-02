@@ -559,7 +559,9 @@ def main():
                     iso = d.isoformat()
                     raw_sleep = garmin_client.get_sleep_data(iso)
                     daily = (raw_sleep or {}).get("dailySleepDTO") or {}
-                    sleep_scores.append(daily.get("sleepScores", {}).get("overall", {}).get("value"))
+                    sleep_scores_dict = daily.get("sleepScores") or {}
+                    overall_dict = sleep_scores_dict.get("overall") or {}
+                    sleep_scores.append(overall_dict.get("value"))
                     hrv.append(raw_sleep.get("avgOvernightHrv") if raw_sleep else None)
                     readiness_raw = garmin_client.get_training_readiness(iso)
                     readiness_scores.append(readiness_raw[0]["score"] if readiness_raw else None)
