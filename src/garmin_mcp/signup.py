@@ -2,10 +2,12 @@
 Self-serve signup: lets a new person log into their own Garmin account
 (email + password, with MFA if needed) and receive their own personal
 auth token to use with this server — without you doing it for them.
+
+Repeat signups from the same email reuse their existing token rather
+than minting a new one each time, keeping the user store clean.
 """
 
 import io
-import json
 import secrets
 import sys
 import tempfile
@@ -24,7 +26,7 @@ def _cleanup_pending():
         del _pending_logins[k]
 
 
-def _finish_signup(garmin):
+def _finish_signup(garmin, email: str | None = None):
     from garmin_mcp import user_store
     from starlette.responses import JSONResponse
 
@@ -33,8 +35,9 @@ def _finish_signup(garmin):
     with open(f"{tmp_dir}/garmin_tokens.json") as f:
         token_json = f.read()
 
-    user_token = secrets.token_urlsafe(32)
-    user_store.save_user_tokens(user_token, token_json)
+    existing_token = user_store.find_token_for_email(email) if email else None
+    user_token = existing_token or secrets.token_urlsafe(32)
+    user_store.save_user_tokens(user_token, token_json, email=email)
     return JSONResponse({"status": "ok", "token": user_token})
 
 
@@ -67,11 +70,12 @@ def register_signup_routes(fastmcp, is_cn: bool):
             _pending_logins[signup_id] = {
                 "garmin": garmin,
                 "state": result2,
+                "email": email,
                 "created": time.time(),
             }
             return JSONResponse({"status": "mfa_required", "signup_id": signup_id})
 
-        return _finish_signup(garmin)
+        return _finish_signup(garmin, email=email)
 
     @fastmcp.custom_route("/signup/verify", methods=["POST"])
     async def signup_verify(request: Request):
@@ -90,4 +94,4 @@ def register_signup_routes(fastmcp, is_cn: bool):
             return JSONResponse({"error": str(exc)}, status_code=400)
 
         del _pending_logins[signup_id]
-        return _finish_signup(garmin)
+        return _finish_signup(garmin, email=pending.get("email"))
