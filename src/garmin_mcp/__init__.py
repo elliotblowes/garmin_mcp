@@ -558,18 +558,18 @@ def main():
                 while d <= today:
                     iso = d.isoformat()
                     raw_sleep = garmin_client.get_sleep_data(iso)
-                    daily = (raw_sleep or {}).get("dailySleepDTO", {})
+                    daily = (raw_sleep or {}).get("dailySleepDTO") or {}
                     sleep_scores.append(daily.get("sleepScores", {}).get("overall", {}).get("value"))
                     hrv.append(raw_sleep.get("avgOvernightHrv") if raw_sleep else None)
                     readiness_raw = garmin_client.get_training_readiness(iso)
                     readiness_scores.append(readiness_raw[0]["score"] if readiness_raw else None)
                     d += timedelta(days=1)
                 raw_hill = garmin_client.get_hill_score(start.isoformat(), today.isoformat())
-                hill_daily = (raw_hill or {}).get("hillScoreDTOList", [])
+                hill_daily = (raw_hill or {}).get("hillScoreDTOList") or []
                 latest_hill = hill_daily[0] if hill_daily else {}
 
                 raw_endurance = garmin_client.get_endurance_score(start.isoformat(), today.isoformat())
-                endurance_dto = (raw_endurance or {}).get("enduranceScoreDTO", {})
+                endurance_dto = (raw_endurance or {}).get("enduranceScoreDTO") or {}
 
                 classification_labels = {
                     1: "recreational", 2: "intermediate", 3: "trained",
