@@ -593,6 +593,8 @@ def main():
                 }
                 return JSONResponse(payload, headers=CORS_HEADERS)
             except Exception as exc:
+                import traceback
+                traceback.print_exc()
                 return JSONResponse({"error": str(exc)}, status_code=500, headers=CORS_HEADERS)
 
         print(
