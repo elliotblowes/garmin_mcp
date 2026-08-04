@@ -618,6 +618,74 @@ def main():
             except Exception as exc:
                 return JSONResponse({"error": str(exc)}, status_code=400, headers=CORS_HEADERS)
 
+        @fastmcp.custom_route("/api/chat", methods=["POST", "OPTIONS"])
+        async def chat_route(request: "Request"):
+            if request.method == "OPTIONS":
+                return JSONResponse({}, headers=CORS_HEADERS)
+
+            token = current_user_token.get()
+            if token is None:
+                return JSONResponse({"error": "unauthorized"}, status_code=401, headers=CORS_HEADERS)
+
+            try:
+                from garmin_mcp import coach_chat
+                body = await request.json()
+                message = body.get("message", "")
+                history = body.get("history", [])
+
+                plan = user_store.load_user_plan(token)
+
+                today = date.today()
+                start = today - timedelta(days=10)
+                sleep_scores, hrv = [], []
+                d = start
+                while d <= today:
+                    iso = d.isoformat()
+                    raw_sleep = garmin_client.get_sleep_data(iso)
+                    daily = (raw_sleep or {}).get("dailySleepDTO") or {}
+                    sleep_scores_dict = daily.get("sleepScores") or {}
+                    overall_dict = sleep_scores_dict.get("overall") or {}
+                    sleep_scores.append(overall_dict.get("value"))
+                    hrv.append(raw_sleep.get("avgOvernightHrv") if raw_sleep else None)
+                    d += timedelta(days=1)
+                snapshot = {"as_of": today.isoformat(), "recent_sleep_scores": sleep_scores, "recent_hrv": hrv}
+
+                result = coach_chat.chat(message, history, plan, snapshot)
+                return JSONResponse(result, headers=CORS_HEADERS)
+            except Exception as exc:
+                import traceback
+                return JSONResponse({"error": str(exc), "traceback": traceback.format_exc()}, status_code=500, headers=CORS_HEADERS)
+
+        @fastmcp.custom_route("/api/plan/apply-edits", methods=["POST", "OPTIONS"])
+        async def apply_edits_route(request: "Request"):
+            if request.method == "OPTIONS":
+                return JSONResponse({}, headers=CORS_HEADERS)
+
+            token = current_user_token.get()
+            if token is None:
+                return JSONResponse({"error": "unauthorized"}, status_code=401, headers=CORS_HEADERS)
+
+            try:
+                body = await request.json()
+                edits = body.get("edits", [])
+                plan = user_store.load_user_plan(token)
+
+                for edit in edits:
+                    target_date = edit.get("target_date")
+                    for week in plan["weeks"]:
+                        for day in week["days"]:
+                            if day["date"] == target_date:
+                                day["type"] = edit.get("type", day["type"])
+                                day["description"] = edit.get("description", day["description"])
+                                day["badge"] = edit.get("badge", day.get("badge"))
+                                day["note"] = edit.get("note", day.get("note"))
+
+                user_store.save_user_plan(token, plan)
+                return JSONResponse(plan, headers=CORS_HEADERS)
+            except Exception as exc:
+                import traceback
+                return JSONResponse({"error": str(exc), "traceback": traceback.format_exc()}, status_code=500, headers=CORS_HEADERS)
+
         print(
             f"Serving MCP over {transport} on {http_host}:{http_port}",
             file=sys.stderr,
