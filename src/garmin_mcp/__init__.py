@@ -597,6 +597,27 @@ def main():
                 tb = traceback.format_exc()
                 return JSONResponse({"error": str(exc), "traceback": tb}, status_code=500, headers=CORS_HEADERS)
 
+        @fastmcp.custom_route("/api/plan", methods=["GET", "POST", "OPTIONS"])
+        async def plan_route(request: "Request"):
+            if request.method == "OPTIONS":
+                return JSONResponse({}, headers=CORS_HEADERS)
+
+            token = current_user_token.get()
+            if token is None:
+                return JSONResponse({"error": "unauthorized"}, status_code=401, headers=CORS_HEADERS)
+
+            if request.method == "GET":
+                plan = user_store.load_user_plan(token)
+                return JSONResponse(plan, headers=CORS_HEADERS)
+
+            # POST — replace the stored plan wholesale
+            try:
+                new_plan = await request.json()
+                user_store.save_user_plan(token, new_plan)
+                return JSONResponse({"status": "ok"}, headers=CORS_HEADERS)
+            except Exception as exc:
+                return JSONResponse({"error": str(exc)}, status_code=400, headers=CORS_HEADERS)
+
         print(
             f"Serving MCP over {transport} on {http_host}:{http_port}",
             file=sys.stderr,
@@ -614,7 +635,7 @@ def main():
 
         async def guarded_app(scope, receive, send):
             if scope["type"] == "http" and (
-                scope["path"].startswith("/mcp") or scope["path"].startswith("/dashboard") or scope["path"].startswith("/api/dashboard-data")
+                scope["path"].startswith("/mcp") or scope["path"].startswith("/dashboard") or scope["path"].startswith("/api/")
             ):
                 query_string = scope.get("query_string", b"").decode()
                 query_token = None
