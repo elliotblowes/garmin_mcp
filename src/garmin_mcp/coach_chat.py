@@ -74,7 +74,7 @@ def chat(message: str, history: list[dict], plan: dict, garmin_snapshot: dict) -
     tool = types.Tool(function_declarations=[PROPOSE_EDITS_SCHEMA])
 
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-flash-latest",
         contents=contents,
         config=types.GenerateContentConfig(tools=[tool]),
     )
