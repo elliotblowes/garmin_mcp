@@ -136,6 +136,7 @@ class _GarminProxy:
     }
 
     _user_clients: dict = {}
+    _user_locks: dict = {}
 
     def __init__(self, client=None):
         self._client = client  # used only in single-user (stdio/local) mode
@@ -146,6 +147,7 @@ class _GarminProxy:
 
         from garmin_mcp import user_store
         from garmin_mcp.user_context import current_user_token
+        import threading
 
         token = current_user_token.get()
         if token is None:
@@ -153,19 +155,28 @@ class _GarminProxy:
         if token in self._user_clients:
             return self._user_clients[token]
 
-        garmin_token_json = user_store.load_user_tokens(token)
-        if garmin_token_json is None:
-            raise RuntimeError("Unknown user")
+        # Serialize login attempts per user so concurrent tool calls (e.g.
+        # several Garmin queries fired for one chat turn) don't each start
+        # their own simultaneous login — only the first does the real work,
+        # the rest wait and reuse its result.
+        lock = self._user_locks.setdefault(token, threading.Lock())
+        with lock:
+            if token in self._user_clients:
+                return self._user_clients[token]
 
-        import tempfile
-        tmp_dir = tempfile.mkdtemp()
-        with open(f"{tmp_dir}/garmin_tokens.json", "w") as f:
-            f.write(garmin_token_json)
+            garmin_token_json = user_store.load_user_tokens(token)
+            if garmin_token_json is None:
+                raise RuntimeError("Unknown user")
 
-        garmin = Garmin(is_cn=is_cn)
-        garmin.login(tmp_dir)
-        self._user_clients[token] = garmin
-        return garmin
+            import tempfile
+            tmp_dir = tempfile.mkdtemp()
+            with open(f"{tmp_dir}/garmin_tokens.json", "w") as f:
+                f.write(garmin_token_json)
+
+            garmin = Garmin(is_cn=is_cn)
+            garmin.login(tmp_dir)
+            self._user_clients[token] = garmin
+            return garmin
 
     def __getattr__(self, name):
         attr = getattr(self._resolve_client(), name)
