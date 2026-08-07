@@ -3,6 +3,7 @@ Health & Wellness Data functions for Garmin Connect MCP Server
 """
 import json
 import datetime
+import sys
 from typing import Any, Dict, List, Optional, Union
 
 # The garmin_client will be set by the main file
@@ -430,18 +431,18 @@ def register_tools(app):
     @app.tool()
     async def get_sleep_data(date: str = "") -> str:
         """Get full sleep data with all details
-
         Note: This returns detailed sleep data (~50KB).
         For a compact summary, use get_sleep_summary().
-
         Args:
             date: Date in YYYY-MM-DD format. Defaults to today if omitted.
         """
+        print(f"DEBUG get_sleep_data received: {date!r} (type: {type(date).__name__})", file=sys.stderr)
         try:
             from datetime import date as _date
             import re
             if not date or not re.match(r"^\d{4}-\d{2}-\d{2}$", date):
                 date = _date.today().isoformat()
+            print(f"DEBUG get_sleep_data using date: {date!r}", file=sys.stderr)
             sleep_data = garmin_client.get_sleep_data(date)
             if not sleep_data:
                 return f"No sleep data found for {date}"
@@ -461,11 +462,13 @@ def register_tools(app):
         Args:
             date: Date in YYYY-MM-DD format. Defaults to today if omitted.
         """
+        print(f"DEBUG get_sleep_summary received: {date!r} (type: {type(date).__name__})", file=sys.stderr)
         try:
             from datetime import date as _date
             import re
             if not date or not re.match(r"^\d{4}-\d{2}-\d{2}$", date):
                 date = _date.today().isoformat()
+            print(f"DEBUG get_sleep_summary using date: {date!r}", file=sys.stderr)
             sleep_data = garmin_client.get_sleep_data(date)
             if not sleep_data:
                 return f"No sleep summary found for {date}"
