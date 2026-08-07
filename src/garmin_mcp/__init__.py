@@ -183,6 +183,19 @@ class _GarminProxy:
                     self._user_clients[token] = garmin
                     print(f"Garmin login succeeded on attempt {attempt} for token {token[:8]}...", file=sys.stderr)
                     return garmin
+                except GarminConnectAuthenticationError as exc:
+                    if "social profile" in str(exc).lower():
+                        # This specific enrichment call (display name, unit prefs)
+                        # isn't used by any of our tools — the core OAuth session
+                        # underneath it already succeeded. Don't treat it as fatal.
+                        print(f"Garmin social-profile fetch failed (non-fatal), continuing: {exc!r}", file=sys.stderr)
+                        self._user_clients[token] = garmin
+                        return garmin
+                    last_error = exc
+                    print(f"Garmin login attempt {attempt} failed: {exc!r}", file=sys.stderr)
+                    traceback.print_exc()
+                    if attempt < 3:
+                        time.sleep(10)
                 except Exception as exc:
                     last_error = exc
                     print(f"Garmin login attempt {attempt} failed: {exc!r}", file=sys.stderr)
