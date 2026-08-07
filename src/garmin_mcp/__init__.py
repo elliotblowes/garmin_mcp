@@ -169,14 +169,28 @@ class _GarminProxy:
                 raise RuntimeError("Unknown user")
 
             import tempfile
+            import time
+            import traceback
             tmp_dir = tempfile.mkdtemp()
             with open(f"{tmp_dir}/garmin_tokens.json", "w") as f:
                 f.write(garmin_token_json)
 
-            garmin = Garmin(is_cn=is_cn)
-            garmin.login(tmp_dir)
-            self._user_clients[token] = garmin
-            return garmin
+            last_error = None
+            for attempt in range(1, 4):
+                try:
+                    garmin = Garmin(is_cn=is_cn)
+                    garmin.login(tmp_dir)
+                    self._user_clients[token] = garmin
+                    print(f"Garmin login succeeded on attempt {attempt} for token {token[:8]}...", file=sys.stderr)
+                    return garmin
+                except Exception as exc:
+                    last_error = exc
+                    print(f"Garmin login attempt {attempt} failed: {exc!r}", file=sys.stderr)
+                    traceback.print_exc()
+                    if attempt < 3:
+                        time.sleep(10)
+
+            raise last_error
 
     def __getattr__(self, name):
         attr = getattr(self._resolve_client(), name)
