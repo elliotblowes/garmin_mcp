@@ -428,16 +428,20 @@ def register_tools(app):
             return f"Error retrieving hydration data: {str(e)}"
 
     @app.tool()
-    async def get_sleep_data(date: str) -> str:
+    async def get_sleep_data(date: str = "") -> str:
         """Get full sleep data with all details
 
         Note: This returns detailed sleep data (~50KB).
         For a compact summary, use get_sleep_summary().
 
         Args:
-            date: Date in YYYY-MM-DD format
+            date: Date in YYYY-MM-DD format. Defaults to today if omitted.
         """
         try:
+            from datetime import date as _date
+            import re
+            if not date or not re.match(r"^\d{4}-\d{2}-\d{2}$", date):
+                date = _date.today().isoformat()
             sleep_data = garmin_client.get_sleep_data(date)
             if not sleep_data:
                 return f"No sleep data found for {date}"
@@ -447,7 +451,7 @@ def register_tools(app):
             return f"Error retrieving sleep data: {str(e)}"
 
     @app.tool()
-    async def get_sleep_summary(date: str) -> str:
+    async def get_sleep_summary(date: str = "") -> str:
         """Get sleep summary with only essential metrics (lightweight version)
 
         This endpoint returns a compact summary of sleep data (~350 bytes) instead of
@@ -455,9 +459,13 @@ def register_tools(app):
         where the full time-series data would overwhelm the context window.
 
         Args:
-            date: Date in YYYY-MM-DD format
+            date: Date in YYYY-MM-DD format. Defaults to today if omitted.
         """
         try:
+            from datetime import date as _date
+            import re
+            if not date or not re.match(r"^\d{4}-\d{2}-\d{2}$", date):
+                date = _date.today().isoformat()
             sleep_data = garmin_client.get_sleep_data(date)
             if not sleep_data:
                 return f"No sleep summary found for {date}"
